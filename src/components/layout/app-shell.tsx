@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { useClinicStore } from "@/lib/store";
 
 const NAV = [
-  { to: "/", label: "Clinic", icon: Home },
+  { to: "/", label: "Objects", icon: Home },
   { to: "/record", label: "Record", icon: Mic },
   { to: "/patients", label: "Caseload", icon: Users },
   { to: "/learn", label: "Academy", icon: BookOpen },
