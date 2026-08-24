@@ -3,50 +3,48 @@
 
 @theme {
   --font-sans: "Figtree", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Cormorant Garamond", "Iowan Old Style", Georgia, serif;
+  --font-display: "Outfit", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
-
-  --color-background: #cfd6d0;
-  --color-foreground: #1c221f;
-  --color-card: #dce3dc;
-  --color-card-foreground: #1c221f;
-  --color-popover: #dfe6df;
-  --color-popover-foreground: #1c221f;
-  --color-primary: #1a4538;
-  --color-primary-foreground: #d5e4dc;
-  --color-secondary: #c3cdc4;
-  --color-secondary-foreground: #1c221f;
-  --color-muted: #c5cec6;
-  --color-muted-foreground: #4e5852;
-  --color-accent: #b7cfc4;
-  --color-accent-foreground: #1a4538;
-  --color-destructive: #5a4654;
-  --color-destructive-foreground: #e4dce0;
-  --color-border: #b4beb6;
-  --color-input: #aeb8b0;
-  --color-ring: #1a4538;
-  --color-lab: #0c1411;
-  --color-lab-foreground: #d4ddd6;
-  --color-lab-muted: #7e8b84;
-  --color-lab-line: #1a2420;
-  --color-trace: #6faf8f;
-  --color-trace-2: #7e958c;
-  --color-ok: #2d6a4f;
-  --color-warn: #4a6d78;
-
-  --radius-sm: 0.375rem;
-  --radius-md: 0.625rem;
-  --radius-lg: 0.875rem;
-  --radius-xl: 1.25rem;
-  --radius-2xl: 1.75rem;
-  --radius: 0.625rem;
-
-  --shadow-card: 0 1px 0 rgba(28, 34, 31, 0.05), 0 12px 32px -18px rgba(26, 69, 56, 0.28);
+  --color-background: #f7f8f8;
+  --color-foreground: #2a3236;
+  --color-card: #ffffff;
+  --color-card-foreground: #2a3236;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #2a3236;
+  --color-primary: #385058;
+  --color-primary-foreground: #f7f8f8;
+  --color-secondary: #e8eef0;
+  --color-secondary-foreground: #385058;
+  --color-muted: #eef1f2;
+  --color-muted-foreground: #6b757a;
+  --color-accent: #d7f0f0;
+  --color-accent-foreground: #2a6f6f;
+  --color-destructive: #d05028;
+  --color-destructive-foreground: #fff6f2;
+  --color-border: #d8dfe1;
+  --color-input: #cfd6d8;
+  --color-ring: #40a8a8;
+  --color-lab: #24343a;
+  --color-lab-foreground: #e8eef0;
+  --color-lab-muted: #8aa0a6;
+  --color-lab-line: #31444b;
+  --color-trace: #40a8a8;
+  --color-trace-2: #2e7e7e;
+  --color-gold: #f8a800;
+  --color-coral: #d05028;
+  --color-ok: #2e8a7a;
+  --color-warn: #c48400;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1.25rem;
+  --radius-xl: 1.75rem;
+  --radius-2xl: 2rem;
+  --radius: 0.875rem;
 }
 
 @layer base {
   * { border-color: var(--color-border); }
-  html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+  html { -webkit-font-smoothing: antialiased; }
   html, body, #app {
     min-height: 100%;
     background: var(--color-background);
@@ -54,40 +52,19 @@
   }
   body { font-family: var(--font-sans); line-height: 1.5; }
   h1, h2, h3 {
-    text-wrap: balance;
     font-family: var(--font-display);
-    letter-spacing: -0.02em;
-    line-height: 1.15;
-  }
-  p { text-wrap: pretty; }
-  button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
-  ::selection { background: color-mix(in oklab, var(--color-trace) 28%, transparent); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    letter-spacing: -0.03em;
+    line-height: 1.12;
+    font-weight: 650;
   }
 }
 
 .font-display { font-family: var(--font-display); }
-.lab-grid {
-  background-image:
-    linear-gradient(to right, var(--color-lab-line) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--color-lab-line) 1px, transparent 1px);
-  background-size: 24px 24px;
-}
-.paper-grain {
+
+.infographic-bg {
   background-color: var(--color-background);
-  background-image: radial-gradient(
-    transparent 0.5px,
-    color-mix(in oklab, var(--color-foreground) 3.5%, transparent) 0.6px
-  );
-  background-size: 3px 3px;
-}
-@media print {
-  html, body { background: #dce3dc; }
-  .paper-grain { background: #dce3dc; }
+  background-image:
+    radial-gradient(circle at 92% -4%, color-mix(in oklab, var(--color-coral) 11%, transparent) 0 180px, transparent 181px),
+    radial-gradient(circle at 108% 22%, color-mix(in oklab, var(--color-trace) 10%, transparent) 0 160px, transparent 161px),
+    radial-gradient(circle at -6% 94%, color-mix(in oklab, var(--color-gold) 12%, transparent) 0 200px, transparent 201px);
 }
