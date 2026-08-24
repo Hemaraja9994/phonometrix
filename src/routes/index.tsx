@@ -1,59 +1,90 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useClinicStore } from "@/lib/store";
+import { useRef } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
+import { useClinicStore } from "@/lib/store";
+import { analyzeBlob } from "@/lib/audio/dsp";
+import { saveAudio } from "@/lib/audio/idb";
+import { uid } from "@/lib/utils";
+import { toast } from "sonner";
 
-export const Route = createFileRoute("/")({ component: HomePage });
+export const Route = createFileRoute("/")({ component: ObjectsPage });
 
-function Ring({ value, label, color }: { value: number; label: string; color: string }) {
-  const r = 36;
-  const c = 2 * Math.PI * r;
-  const dash = (value / 100) * c;
-  return (
-    <div className="flex flex-col items-center gap-2">
-      <svg viewBox="0 0 96 96" className="h-24 w-24">
-        <circle cx="48" cy="48" r={r} fill="none" stroke="#e6eaea" strokeWidth="8" />
-        <circle cx="48" cy="48" r={r} fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" strokeDasharray={`${dash} ${c}`} transform="rotate(-90 48 48)" />
-        <text x="48" y="52" textAnchor="middle" className="fill-foreground" style={{ fontSize: 16, fontFamily: "IBM Plex Mono" }}>{value}%</text>
-      </svg>
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
-    </div>
-  );
-}
-
-function HomePage() {
-  const patients = useClinicStore((s) => s.patients);
+function ObjectsPage() {
   const recordings = useClinicStore((s) => s.recordings);
+  const patients = useClinicStore((s) => s.patients);
+  const addRecording = useClinicStore((s) => s.addRecording);
+  const navigate = useNavigate();
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function onOpen(file: File) {
+    try {
+      toast.message("Reading sound…");
+      const analysis = await analyzeBlob(file);
+      const id = uid("r");
+      await saveAudio(id, file);
+      const patientId = patients[0]?.id ?? "p-open";
+      addRecording({
+        id,
+        patientId,
+        protocolId: "voice-battery",
+        task: "sustained-a",
+        label: file.name.replace(/\.[^.]+$/, ""),
+        language: "en",
+        durationSec: analysis.measures.durationSec,
+        sampleRate: analysis.sampleRate,
+        hasAudio: true,
+        quality: analysis.measures.quality,
+        measures: analysis.measures,
+        f0Contour: analysis.f0Contour,
+        intensityContour: analysis.intensityContour,
+      });
+      toast.success("Sound added to Objects.");
+      void navigate({ to: "/analyze/$id", params: { id } });
+    } catch (e) {
+      console.error(e);
+      toast.error("Could not open that file. Use WAV, M4A, or WebM.");
+    }
+  }
+
   return (
-    <div className="mx-auto max-w-4xl px-4 sm:px-6 py-8 space-y-8">
+    <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8 space-y-6">
       <div>
-        <p className="text-[11px] uppercase tracking-[0.2em] text-primary">Phonometrix</p>
-        <h1 className="font-display text-4xl mt-1">Voice laboratory</h1>
-        <p className="mt-2 text-sm text-muted-foreground max-w-xl">Record, analyse and document voice with Praat-based measures. Samples stay on this device.</p>
-        <div className="mt-4 flex gap-3">
-          <Button asChild><Link to="/record">New sample</Link></Button>
-          <Button variant="outline" asChild><Link to="/patients">Caseload</Link></Button>
-        </div>
+        <p className="text-[11px] uppercase tracking-[0.2em] text-primary">Praat-style workstation</p>
+        <h1 className="font-display text-4xl mt-1">Objects</h1>
+        <p className="mt-2 text-sm text-muted-foreground max-w-xl">
+          Record or open a sound, then View &amp; Edit — waveform, wide-band spectrogram, pitch,
+          formants, intensity, and a Voice report in the browser.
+        </p>
       </div>
-      <div className="rounded-3xl border border-border bg-card p-6 grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <Ring value={Math.min(100, patients.length * 25)} label="Caseload" color="#D05028" />
-        <Ring value={Math.min(100, recordings.length * 20)} label="Samples" color="#40A8A8" />
-        <Ring value={60} label="Jitter in range" color="#F8A800" />
-        <Ring value={70} label="Signal quality" color="#385058" />
+      <div className="flex flex-wrap gap-2">
+        <Button asChild><Link to="/record">Record</Link></Button>
+        <Button variant="outline" onClick={() => fileRef.current?.click()}>Open</Button>
+        <input ref={fileRef} type="file" accept="audio/*,.wav,.mp3,.m4a,.webm,.ogg" className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) void onOpen(f); e.currentTarget.value = ""; }} />
       </div>
-      <div className="grid gap-3">
-        {recordings.slice(0, 4).map((r) => {
-          const p = patients.find((x) => x.id === r.patientId);
-          return (
-            <Link key={r.id} to="/analyze/$id" params={{ id: r.id }} className="rounded-2xl border border-border bg-card p-4 flex justify-between">
-              <div>
-                <p className="font-medium">{p?.name ?? "Unknown"}</p>
-                <p className="text-xs text-muted-foreground">{r.label}</p>
-              </div>
-              <p className="font-mono text-sm">{r.measures.f0Mean ?? "—"} Hz</p>
-            </Link>
-          );
-        })}
+      <div className="rounded-2xl border border-border bg-card overflow-hidden">
+        <div className="px-4 py-2 border-b border-border text-[11px] uppercase tracking-wider text-muted-foreground">Sounds</div>
+        <ul>
+          {recordings.map((r) => {
+            const patient = patients.find((p) => p.id === r.patientId);
+            return (
+              <li key={r.id} className="border-t border-border/80 first:border-t-0">
+                <Link to="/analyze/$id" params={{ id: r.id }} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-muted/70">
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">Sound {r.label}</p>
+                    <p className="text-xs text-muted-foreground truncate">{patient?.name ?? "Untitled"} · {r.durationSec.toFixed(2)} s · {r.sampleRate} Hz</p>
+                  </div>
+                  <span className="text-xs font-mono text-trace shrink-0">{r.measures.f0Mean != null ? `${r.measures.f0Mean.toFixed(0)} Hz` : "View"}</span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
       </div>
+      <p className="text-xs text-muted-foreground max-w-xl">
+        Inspired by Praat (Boersma &amp; Weenink). Measures are educational approximations of jitter,
+        shimmer and HNR — not a certified medical device. Record a live /aː/ for a real spectrogram.
+      </p>
     </div>
   );
 }
