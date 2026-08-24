@@ -4,6 +4,7 @@ import { PraatEditor } from "@/components/audio/praat-editor";
 import { useClinicStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { analyzeSamples } from "@/lib/audio/dsp";
+import { indianSettings } from "@/lib/audio/voice-report";
 import { loadRecordingAudio } from "@/lib/audio/load-recording";
 import { encodeWav } from "@/lib/audio/synth";
 import type { AnalysisResult } from "@/lib/audio/dsp";
@@ -20,14 +21,13 @@ function AnalyzePage() {
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!recording) return;
+    if (!recording || !patient) return;
     let cancelled = false;
     (async () => {
       try {
         const audio = await loadRecordingAudio(recording);
         if (cancelled) return;
-        const analysis = analyzeSamples(audio.samples, audio.sampleRate);
-        setResult(analysis);
+        setResult(analyzeSamples(audio.samples, audio.sampleRate));
         setSynthetic(audio.synthetic);
       } catch (e) {
         console.error(e);
@@ -35,13 +35,13 @@ function AnalyzePage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [recording]);
+  }, [recording, patient]);
 
   if (!recording || !patient) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 text-center">
-        <p className="font-display text-2xl">Sound not in the Objects list</p>
-        <Button className="mt-4" asChild><Link to="/">Back to Objects</Link></Button>
+        <p className="font-display text-2xl">Sound not in the session list</p>
+        <Button className="mt-4" asChild><Link to="/">Back</Link></Button>
       </div>
     );
   }
@@ -55,24 +55,24 @@ function AnalyzePage() {
     a.click();
   }
 
+  const band = indianSettings(patient.sex, patient.age);
+
   return (
     <div className="mx-auto max-w-5xl px-4 sm:px-6 py-6 space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="h-4 w-4" /> Objects
+            <ArrowLeft className="h-4 w-4" /> Session
           </Link>
           <h1 className="font-display text-3xl mt-1">Sound: {recording.label}</h1>
           <p className="text-sm text-muted-foreground">
-            {patient.name} · {recording.task} · {recording.sampleRate} Hz
-            {synthetic ? " · synthesised demo token (record to analyse a live vowel)" : ""}
+            {patient.name} · {patient.age} yrs {patient.sex} · pitch {band.fMin}–{band.fMax} Hz · max formant {band.maxFormant} Hz
+            {synthetic ? " · synthesised demo (record a live /aː/)" : ""}
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={download} disabled={!result}>Write WAV</Button>
-          <Button asChild>
-            <Link to="/record" search={{ patient: patient.id, task: recording.task }}>Record again</Link>
-          </Button>
+          <Button asChild><Link to="/record" search={{ patient: patient.id, task: recording.task }}>Record again</Link></Button>
         </div>
       </div>
       {err && <p className="text-sm text-coral">{err}</p>}
@@ -85,6 +85,9 @@ function AnalyzePage() {
           intensityContour={result.intensityContour}
           formantContour={result.formantContour}
           measures={result.measures}
+          label={recording.label}
+          sex={patient.sex}
+          age={patient.age}
         />
       )}
     </div>
