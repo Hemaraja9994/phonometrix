@@ -7,41 +7,29 @@ import { saveAudio } from "@/lib/audio/idb";
 import { uid } from "@/lib/utils";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/")({ component: ObjectsPage });
+export const Route = createFileRoute("/")({ component: HomePage });
 
-type Obj = { kind: "participant"; id: string } | { kind: "sound"; id: string };
+const MODULES = [
+  { k: "01", t: "Spectrogram", d: "Wide- and narrow-band STFT, 0–5000 Hz." },
+  { k: "02", t: "Pitch", d: "YIN F0. Indian adult working bands, not only Western means." },
+  { k: "03", t: "Formants", d: "LPC F1–F4 on the spectrogram for /aː iː uː/." },
+  { k: "04", t: "Intensity", d: "RMS intensity contour in dB, for MPT and loudness." },
+  { k: "05", t: "Voice report", d: "Jitter local / RAP / PPQ5 / DDP, shimmer, HNR, NHR, pulses, voice breaks." },
+  { k: "06", t: "Indian battery", d: "Sustained /aː/, MPT, s/z, CAPE-V, reading in 11 languages." },
+];
 
-function ObjectsPage() {
+function HomePage() {
   const recordings = useClinicStore((s) => s.recordings);
   const patients = useClinicStore((s) => s.patients);
   const addRecording = useClinicStore((s) => s.addRecording);
   const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
-  const [sel, setSel] = useState<Obj | null>(
-    recordings[0] ? { kind: "sound", id: recordings[0].id } : patients[0] ? { kind: "participant", id: patients[0].id } : null,
-  );
-
-  const rows: { obj: Obj; n: number; title: string; sub: string }[] = [];
-  patients.forEach((p) => {
-    rows.push({ obj: { kind: "participant", id: p.id }, n: 0, title: `Participant ${p.name}`, sub: `${p.age} yrs · ${p.sex} · ${p.occupation} · ${p.diagnosis}` });
-    recordings.filter((r) => r.patientId === p.id).forEach((r) => {
-      rows.push({
-        obj: { kind: "sound", id: r.id },
-        n: 0,
-        title: `Sound ${r.label}`,
-        sub: `${r.durationSec.toFixed(2)} s · ${r.sampleRate} Hz · F0 ${r.measures.f0Mean != null ? r.measures.f0Mean.toFixed(0) + " Hz" : "\u2014"}`,
-      });
-    });
-  });
-  recordings.filter((r) => !patients.some((p) => p.id === r.patientId)).forEach((r) => {
-    rows.push({ obj: { kind: "sound", id: r.id }, n: 0, title: `Sound ${r.label}`, sub: `${r.durationSec.toFixed(2)} s` });
-  });
-  rows.forEach((r, i) => { r.n = i + 1; });
+  const [sel, setSel] = useState<string | null>(recordings[0]?.id ?? null);
 
   async function onOpen(file: File) {
-    const patientId = sel?.kind === "participant" ? sel.id : sel?.kind === "sound" ? recordings.find((r) => r.id === sel.id)?.patientId : patients[0]?.id;
+    const patientId = patients[0]?.id;
     if (!patientId) {
-      toast.error("Create a participant first, then Open a sound onto that file.");
+      toast.error("Create a participant first.");
       void navigate({ to: "/patients/new" });
       return;
     }
@@ -57,8 +45,7 @@ function ObjectsPage() {
         hasAudio: true, quality: analysis.measures.quality, measures: analysis.measures,
         f0Contour: analysis.f0Contour, intensityContour: analysis.intensityContour,
       });
-      setSel({ kind: "sound", id });
-      toast.success("Sound added. Opening editor.");
+      toast.success("Opened in the lab.");
       void navigate({ to: "/analyze/$id", params: { id } });
     } catch (e) {
       console.error(e);
@@ -66,63 +53,81 @@ function ObjectsPage() {
     }
   }
 
-  function viewEdit() {
-    if (!sel) return toast.error("Select an object.");
-    if (sel.kind === "sound") void navigate({ to: "/analyze/$id", params: { id: sel.id } });
-    else void navigate({ to: "/patients/$id", params: { id: sel.id } });
-  }
-
-  function record() {
-    const patientId = sel?.kind === "participant" ? sel.id : sel?.kind === "sound" ? recordings.find((r) => r.id === sel.id)?.patientId : patients[0]?.id;
-    if (!patientId) { void navigate({ to: "/patients/new" }); return; }
-    void navigate({ to: "/record", search: { patient: patientId } });
-  }
-
-  const selectedTitle = rows.find((r) => r.obj.kind === sel?.kind && r.obj.id === sel?.id)?.title;
-
   return (
-    <div className="mx-auto max-w-3xl px-4 sm:px-6 py-6 space-y-4">
-      <div>
-        <p className="text-[11px] uppercase tracking-[0.2em] text-primary">Praat 6 · Objects</p>
-        <h1 className="font-display text-3xl mt-1">Objects</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Create a participant, Record or Open a sound, then View &amp; Edit — waveform, spectrogram, pitch, formants, intensity, Voice report.</p>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <Button asChild><Link to="/patients/new">New participant</Link></Button>
-        <Button variant="outline" onClick={record}>Record</Button>
-        <Button variant="outline" onClick={() => fileRef.current?.click()}>Open</Button>
-        <input ref={fileRef} type="file" accept="audio/*,.wav,.mp3,.m4a,.webm,.ogg" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void onOpen(f); e.currentTarget.value = ""; }} />
-      </div>
-      <div className="rounded-xl border border-[#9aa6aa] bg-[#ececec] overflow-hidden shadow-sm">
-        <div className="px-3 py-1.5 bg-[#d8d8d8] border-b border-[#b8b8b8] text-[12px] font-medium text-[#222]">Phonometrix Objects</div>
-        <ul className="max-h-[52vh] overflow-y-auto bg-white font-mono text-[13px]">
-          {rows.map((r) => {
-            const active = sel?.kind === r.obj.kind && sel.id === r.obj.id;
-            return (
-              <li key={`${r.obj.kind}-${r.obj.id}`}>
-                <button type="button" onClick={() => setSel(r.obj)} onDoubleClick={viewEdit}
-                  className={`w-full text-left px-3 py-2 border-b border-[#eee] ${active ? "bg-[#316ac5] text-white" : "hover:bg-[#f3f6fa]"}`}>
-                  <span className="opacity-70 mr-2">{r.n}.</span>{r.title}
-                  <span className={`block text-[11px] mt-0.5 ${active ? "text-white/80" : "text-[#667]"}`}>{r.sub}</span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-        <div className="p-2 bg-[#d8d8d8] border-t border-[#b8b8b8] grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-          <ObjBtn onClick={viewEdit}>View &amp; Edit</ObjBtn>
-          <ObjBtn onClick={viewEdit}>Voice report</ObjBtn>
-          <ObjBtn onClick={record}>Record</ObjBtn>
-          <ObjBtn onClick={() => fileRef.current?.click()}>Open</ObjBtn>
+    <div className="mx-auto max-w-5xl px-4 sm:px-6 py-8 space-y-10">
+      <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr] items-end">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.22em] text-coral">Phonometrix · India</p>
+          <h1 className="font-display text-4xl sm:text-5xl mt-2">Clinical voice laboratory</h1>
+          <p className="mt-3 text-sm sm:text-base text-muted-foreground max-w-xl leading-relaxed">
+            New software for Indian SLPs and student clinicians. Record, open, and analyse voice
+            with spectrogram, pitch, formants, intensity and a Voice report — methods aligned to Praat 7,
+            built for a phone in a teaching clinic.
+          </p>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <Button asChild><Link to="/patients/new">New participant</Link></Button>
+            <Button variant="outline" asChild><Link to="/record">Record</Link></Button>
+            <Button variant="outline" onClick={() => fileRef.current?.click()}>Open sound</Button>
+            <Button variant="ghost" asChild><Link to="/about">About the software</Link></Button>
+            <input ref={fileRef} type="file" accept="audio/*,.wav,.mp3,.m4a,.webm,.ogg" className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) void onOpen(f); e.currentTarget.value = ""; }} />
+          </div>
         </div>
-      </div>
-      <p className="text-xs text-muted-foreground">Selected: {selectedTitle ?? "none"}. Double-click a Sound to open the editor.</p>
+        <div className="rounded-3xl border border-border bg-card p-5 grid grid-cols-2 gap-3">
+          {MODULES.slice(0, 4).map((m) => (
+            <div key={m.k} className="rounded-2xl bg-secondary/70 p-3">
+              <p className="font-mono text-[10px] text-coral">{m.k}</p>
+              <p className="font-medium text-sm mt-1">{m.t}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+      <section>
+        <p className="text-[11px] uppercase tracking-[0.18em] text-primary mb-3">Lab modules</p>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {MODULES.map((m) => (
+            <article key={m.k} className="rounded-2xl border border-border bg-card p-4">
+              <p className="font-mono text-[10px] text-trace">{m.k}</p>
+              <h2 className="font-display text-xl mt-1">{m.t}</h2>
+              <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{m.d}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+      <section className="rounded-3xl border border-border bg-card overflow-hidden">
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.16em] text-primary">Session</p>
+            <p className="text-xs text-muted-foreground">Participants and sounds on this device</p>
+          </div>
+          <Button size="sm" asChild><Link to="/patients/new">New participant</Link></Button>
+        </div>
+        <ul>
+          {patients.map((p) => (
+            <li key={p.id} className="border-t border-border/80 first:border-t-0">
+              <Link to="/patients/$id" params={{ id: p.id }} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-muted/60">
+                <div>
+                  <p className="font-medium">{p.name}</p>
+                  <p className="text-xs text-muted-foreground">{p.age} yrs · {p.sex} · {p.occupation} · {p.diagnosis}</p>
+                </div>
+                <span className="text-[10px] uppercase tracking-wider text-trace">Participant</span>
+              </Link>
+              {recordings.filter((r) => r.patientId === p.id).map((r) => (
+                <button key={r.id} type="button" onClick={() => setSel(r.id)}
+                  onDoubleClick={() => void navigate({ to: "/analyze/$id", params: { id: r.id } })}
+                  className={`w-full text-left pl-8 pr-4 py-2.5 flex justify-between gap-3 border-t border-border/50 ${sel === r.id ? "bg-accent" : "hover:bg-muted/40"}`}>
+                  <span className="text-sm truncate">{r.label}</span>
+                  <span className="font-mono text-xs text-muted-foreground shrink-0">{r.measures.f0Mean != null ? `${r.measures.f0Mean.toFixed(0)} Hz` : "Sound"}</span>
+                </button>
+              ))}
+            </li>
+          ))}
+        </ul>
+        <div className="px-4 py-3 border-t border-border flex flex-wrap gap-2 bg-secondary/40">
+          <Button size="sm" disabled={!sel} onClick={() => sel && void navigate({ to: "/analyze/$id", params: { id: sel } })}>Open lab</Button>
+          <Button size="sm" variant="outline" asChild><Link to="/record">Record</Link></Button>
+        </div>
+      </section>
     </div>
-  );
-}
-
-function ObjBtn({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} className="h-9 rounded-sm border border-[#8a8a8a] bg-[#f3f3f3] text-[12px] hover:bg-white">{children}</button>
   );
 }
